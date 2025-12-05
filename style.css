@@ -31,3 +31,17 @@ button:hover {
   background: #0056b3;
 }
 
+.product-image {
+  width: 100%;          /* fills the container width */
+  max-width: 300px;     /* prevents it from being too big */
+  height: auto;         /* keeps aspect ratio */
+  border-radius: 10px;
+  cursor: pointer;
+  display: block;       /* ensures proper centering */
+  margin: 0 auto;       /* centers the image horizontally */
+  transition: transform 0.2s;
+}
+
+.product-image:hover {
+  transform: scale(1.05); /* slight zoom on hover */
+}

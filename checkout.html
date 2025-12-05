@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Checkout</title>
+  <link href="https://fonts.googleapis.com/css?family=Quicksand&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Checkout</h1>
+    <p id="cart-item"></p>
+    <button id="purchase">Purchase</button>
+  </div>
+
+  <script>
+    const cartItem = JSON.parse(sessionStorage.getItem("cartItem"));
+    if (cartItem) {
+      document.getElementById("cart-item").innerText = `${cartItem.name} - $${cartItem.price}`;
+    }
+
+    document.getElementById("purchase").addEventListener("click", function() {
+      console.log("Purchase complete");
+      // GTM event placeholder
+      // dataLayer.push({ event: 'purchase', product_name: cartItem.name, price: cartItem.price });
+      sessionStorage.removeItem("cartItem");
+      window.location.href = "thank-you.html";
+    });
+  </script>
+</body>
+</html>

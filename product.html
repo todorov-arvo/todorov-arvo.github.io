@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Product Page</title>
+  <link href="https://fonts.googleapis.com/css?family=Quicksand&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Awesome Product</h1>
+    <p>Price: $49.99</p>
+    <button id="add-to-cart">Add to Cart</button>
+  </div>
+
+  <script>
+    document.getElementById("add-to-cart").addEventListener("click", function() {
+      console.log("Product added to cart");
+      // GTM event placeholder
+      // dataLayer.push({ event: 'add_to_cart', product_name: 'Awesome Product', price: 49.99 });
+      sessionStorage.setItem("cartItem", JSON.stringify({ name: "Awesome Product", price: 49.99 }));
+      window.location.href = "checkout.html";
+    });
+  </script>
+</body>
+</html>

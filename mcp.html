@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MCP</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Open+Sans:wght@400;600;700&display=swap');
+
+  :root {
+    --arvo-red: #F9423A;
+    --arvo-ink: #141414;
+    --arvo-white: #FFFFFF;
+    --ink-300: #D6D6D6;
+    --ink-500: #8C8C8C;
+    --border-strong: var(--arvo-ink);
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--arvo-white);
+    font-family: 'Open Sans', sans-serif;
+    overflow: hidden;
+  }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+  }
+
+  .letters {
+    position: relative;
+    display: flex;
+    gap: 28px;
+  }
+
+  .letter-slot {
+    position: relative;
+    width: 130px;
+    height: 170px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .burst {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--arvo-red) 0%, rgba(249,66,58,0) 70%);
+    opacity: 0;
+    transform: scale(0.2);
+    pointer-events: none;
+  }
+
+  .burst.fire {
+    animation: burst-pop 420ms var(--ease) forwards;
+  }
+
+  @keyframes burst-pop {
+    0%   { opacity: 0.9; transform: scale(0.2); }
+    60%  { opacity: 0.55; transform: scale(1.15); }
+    100% { opacity: 0; transform: scale(1.4); }
+  }
+
+  .letter {
+    position: relative;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 150px;
+    line-height: 1;
+    color: var(--arvo-ink);
+    opacity: 0;
+    transform: scale(2.6);
+    z-index: 2;
+  }
+
+  .letter.pop {
+    animation: letter-pop 260ms var(--ease) forwards;
+  }
+
+  @keyframes letter-pop {
+    0%   { opacity: 0; transform: scale(2.6); }
+    70%  { opacity: 1; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .flash {
+    position: fixed;
+    inset: 0;
+    background: var(--arvo-red);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .flash.hit {
+    animation: flash-hit 140ms var(--ease);
+  }
+
+  @keyframes flash-hit {
+    0%   { opacity: 0.5; }
+    100% { opacity: 0; }
+  }
+
+  .shake {
+    animation: shake-hit 220ms var(--ease);
+  }
+
+  @keyframes shake-hit {
+    0%   { transform: translate(0, 0); }
+    25%  { transform: translate(-6px, 2px); }
+    50%  { transform: translate(6px, -2px); }
+    75%  { transform: translate(-3px, 1px); }
+    100% { transform: translate(0, 0); }
+  }
+
+  .caption {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+    height: 20px;
+  }
+
+  button#playBtn {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--arvo-ink);
+    background: var(--arvo-white);
+    border: 2px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 14px 28px;
+    cursor: pointer;
+    transition: background 140ms var(--ease), color 140ms var(--ease);
+  }
+
+  button#playBtn:hover {
+    background: var(--arvo-ink);
+    color: var(--arvo-white);
+  }
+
+  button#playBtn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+</style>
+</head>
+<body>
+
+<div class="flash" id="flash"></div>
+
+<div class="stage" id="stage">
+  <div class="letters" id="letters">
+    <div class="letter-slot"><div class="burst" id="burst-M"></div><div class="letter" id="letter-M">M</div></div>
+    <div class="letter-slot"><div class="burst" id="burst-C"></div><div class="letter" id="letter-C">C</div></div>
+    <div class="letter-slot"><div class="burst" id="burst-P"></div><div class="letter" id="letter-P">P</div></div>
+  </div>
+  <div class="caption" id="caption"></div>
+  <button id="playBtn">Play</button>
+</div>
+
+<script>
+  const playBtn = document.getElementById('playBtn');
+  const stage = document.getElementById('stage');
+  const flashEl = document.getElementById('flash');
+  const caption = document.getElementById('caption');
+
+  let audioCtx = null;
+
+  function wait(ms) {
+    return new Promise(res => setTimeout(res, ms));
+  }
+
+  let deepVoice = null;
+  if ('speechSynthesis' in window) {
+    const pickVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      deepVoice = voices.find(v => /male/i.test(v.name) && /en/i.test(v.lang))
+        || voices.find(v => /en/i.test(v.lang))
+        || voices[0]
+        || null;
+    };
+    pickVoice();
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+  }
+
+  function speak(letter) {
+    return new Promise(resolve => {
+      if (!('speechSynthesis' in window)) { resolve(); return; }
+      // Lowercase avoids engines reading it out as "Capital M"
+      const utter = new SpeechSynthesisUtterance(letter.toLowerCase());
+      utter.rate = 0.8;
+      utter.pitch = 0.3;
+      if (deepVoice) utter.voice = deepVoice;
+      utter.onend = resolve;
+      utter.onerror = resolve;
+      window.speechSynthesis.speak(utter);
+    });
+  }
+
+  function popLetter(id) {
+    document.getElementById('burst-' + id).classList.add('fire');
+    document.getElementById('letter-' + id).classList.add('pop');
+  }
+
+  // Synthesized gunshot: noise burst + low thump, no external audio files
+  function gunshot() {
+    const ctx = audioCtx;
+    const now = ctx.currentTime;
+
+    // Noise crack
+    const bufferSize = ctx.sampleRate * 0.25;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2.5);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 1800;
+    noiseFilter.Q.value = 0.6;
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(1, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+
+    // Low thump
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+
+    const oscGain = ctx.createGain();
+    oscGain.gain.setValueAtTime(0.9, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+    osc.connect(oscGain);
+    oscGain.connect(ctx.destination);
+
+    noise.start(now);
+    noise.stop(now + 0.25);
+    osc.start(now);
+    osc.stop(now + 0.2);
+
+    // Screen flash + shake
+    flashEl.classList.remove('hit');
+    void flashEl.offsetWidth;
+    flashEl.classList.add('hit');
+
+    stage.classList.remove('shake');
+    void stage.offsetWidth;
+    stage.classList.add('shake');
+  }
+
+  async function runSequence() {
+    playBtn.disabled = true;
+    playBtn.textContent = 'Playing…';
+
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+
+    const letters = ['M', 'C', 'P'];
+    for (const l of letters) {
+      caption.textContent = l;
+      popLetter(l);
+      await Promise.all([speak(l), wait(500)]);
+      await wait(150);
+    }
+
+    caption.textContent = '';
+    await wait(500);
+
+    caption.textContent = 'bang';
+    gunshot();
+    await wait(450);
+
+    caption.textContent = 'bang';
+    gunshot();
+    await wait(450);
+
+    caption.textContent = '';
+    playBtn.disabled = false;
+    playBtn.textContent = 'Replay';
+  }
+
+  playBtn.addEventListener('click', () => {
+    // reset letter states for replay
+    ['M', 'C', 'P'].forEach(l => {
+      const letterEl = document.getElementById('letter-' + l);
+      const burstEl = document.getElementById('burst-' + l);
+      letterEl.classList.remove('pop');
+      burstEl.classList.remove('fire');
+      void letterEl.offsetWidth;
+    });
+    runSequence();
+  });
+</script>
+
+</body>
+</html>
